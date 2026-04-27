@@ -1,6 +1,6 @@
 export default function Home() {
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center">
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center">
       <div className="text-center">
         <p className="text-amber-500 uppercase tracking-[0.3em] text-sm font-medium mb-4">
           Attorney at Law
