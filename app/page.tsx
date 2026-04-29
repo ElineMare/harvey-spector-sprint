@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { client } from "@/lib/sanity";
 
 const heroImage =
   "https://www.figma.com/api/mcp/asset/81b225f4-a09b-49a1-b427-30d4e9126536";
@@ -11,31 +12,11 @@ const aboutImage =
 const fullBleedImage =
   "https://www.figma.com/api/mcp/asset/c92c7704-4d6e-424d-b0ff-eae0512604e7";
 
-const projects = [
-  {
-    num: "01",
-    name: "Surfers Paradise",
-    category: "Photography",
-    img: "https://www.figma.com/api/mcp/asset/477302e8-c80f-4260-8448-8a95f1765fee",
-  },
-  {
-    num: "02",
-    name: "Cyberpunk Caffe",
-    category: "Web Design",
-    img: "https://www.figma.com/api/mcp/asset/209ac55d-fee3-42e9-be25-1207e375a27f",
-  },
-  {
-    num: "03",
-    name: "Agency 976",
-    category: "Branding",
-    img: "https://www.figma.com/api/mcp/asset/ad724597-ef6e-43c9-93da-b980898c1a8c",
-  },
-  {
-    num: "04",
-    name: "Minimal Playground",
-    category: "Art Direction",
-    img: "https://www.figma.com/api/mcp/asset/e6244f13-ef51-44f3-b346-af5a662da544",
-  },
+const defaultProjects = [
+  { num: "01", name: "Surfers Paradise", category: "Photography", img: "https://www.figma.com/api/mcp/asset/477302e8-c80f-4260-8448-8a95f1765fee" },
+  { num: "02", name: "Cyberpunk Caffe", category: "Web Design", img: "https://www.figma.com/api/mcp/asset/209ac55d-fee3-42e9-be25-1207e375a27f" },
+  { num: "03", name: "Agency 976", category: "Branding", img: "https://www.figma.com/api/mcp/asset/ad724597-ef6e-43c9-93da-b980898c1a8c" },
+  { num: "04", name: "Minimal Playground", category: "Art Direction", img: "https://www.figma.com/api/mcp/asset/e6244f13-ef51-44f3-b346-af5a662da544" },
 ];
 
 const testimonials = [
@@ -133,8 +114,24 @@ function ArrowDiagonal({ className = "" }: { className?: string }) {
   );
 }
 
+const projectsQuery = `*[_type == "project"] | order(order asc) { number, title, category, imageUrl }`
+
 export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [projects, setProjects] = useState(defaultProjects);
+
+  useEffect(() => {
+    client.fetch(projectsQuery).then((data) => {
+      if (data?.length > 0) {
+        setProjects(data.map((p: { number: string; title: string; category: string; imageUrl: string }) => ({
+          num: p.number,
+          name: p.title,
+          category: p.category,
+          img: p.imageUrl,
+        })));
+      }
+    });
+  }, []);
 
   return (
     <>
