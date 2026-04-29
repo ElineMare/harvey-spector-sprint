@@ -121,6 +121,7 @@ export default function Home() {
   const [projects, setProjects] = useState(defaultProjects);
 
   useEffect(() => {
+    if (!client) return;
     client.fetch(projectsQuery).then((data) => {
       if (data?.length > 0) {
         setProjects(data.map((p: { number: string; title: string; category: string; imageUrl: string }) => ({
