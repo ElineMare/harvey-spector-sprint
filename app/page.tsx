@@ -131,7 +131,7 @@ export default function Home() {
           img: p.imageUrl,
         })));
       }
-    });
+    }).catch(() => {});
   }, []);
 
   return (
