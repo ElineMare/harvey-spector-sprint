@@ -1,7 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { client } from "@/lib/sanity";
+import ContactModal from "@/components/ContactModal";
 
 const heroImage =
   "https://www.figma.com/api/mcp/asset/81b225f4-a09b-49a1-b427-30d4e9126536";
@@ -19,7 +22,7 @@ const defaultProjects = [
   { num: "04", name: "Minimal Playground", category: "Art Direction", img: "https://www.figma.com/api/mcp/asset/e6244f13-ef51-44f3-b346-af5a662da544" },
 ];
 
-const testimonials = [
+const defaultTestimonials = [
   {
     logo: "https://www.figma.com/api/mcp/asset/e272b28c-4d06-47a8-b751-0426169d433c",
     logoW: 143, logoH: 19,
@@ -35,7 +38,7 @@ const testimonials = [
     quote: "Professional, precise, and incredibly fast at handling complex product visualizations and templates.",
     author: "Lukas Weber",
     rotation: 2.9,
-    desktop: { left: "46.9%", top: 272, zIndex: 20 },
+    desktop: { left: "46.9%", top: 200, zIndex: 20 },
   },
   {
     logo: "https://www.figma.com/api/mcp/asset/e4631de2-a806-4dae-a3e6-1509ee0690b2",
@@ -55,7 +58,7 @@ const testimonials = [
   },
 ];
 
-const newsItems = [
+const defaultNewsItems = [
   {
     img: "https://www.figma.com/api/mcp/asset/1ddc155b-64a8-47e3-b15c-0e3ff824e758",
     text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
@@ -73,27 +76,11 @@ const newsItems = [
   },
 ];
 
-const services = [
-  {
-    num: "[ 1 ]",
-    name: "Brand Discovery",
-    img: "https://www.figma.com/api/mcp/asset/30f9ae19-136b-4feb-abc5-6ee4831088ad",
-  },
-  {
-    num: "[ 2 ]",
-    name: "Web Design & Dev",
-    img: "https://www.figma.com/api/mcp/asset/1d4c857a-c76f-4c65-99b5-391e8be32d01",
-  },
-  {
-    num: "[ 3 ]",
-    name: "Marketing",
-    img: "https://www.figma.com/api/mcp/asset/e128feda-e695-4f1d-80ec-6a4aa1007b08",
-  },
-  {
-    num: "[ 4 ]",
-    name: "Photography",
-    img: "https://www.figma.com/api/mcp/asset/145214b5-9f4d-405c-b885-dbcf8f692437",
-  },
+const defaultServices = [
+  { num: "[ 1 ]", name: "Brand Discovery", img: "https://www.figma.com/api/mcp/asset/30f9ae19-136b-4feb-abc5-6ee4831088ad" },
+  { num: "[ 2 ]", name: "Web Design & Dev", img: "https://www.figma.com/api/mcp/asset/1d4c857a-c76f-4c65-99b5-391e8be32d01" },
+  { num: "[ 3 ]", name: "Marketing", img: "https://www.figma.com/api/mcp/asset/e128feda-e695-4f1d-80ec-6a4aa1007b08" },
+  { num: "[ 4 ]", name: "Photography", img: "https://www.figma.com/api/mcp/asset/145214b5-9f4d-405c-b885-dbcf8f692437" },
 ];
 
 // Decorative corner bracket — draws ┌, rotate CSS for other corners
@@ -115,28 +102,338 @@ function ArrowDiagonal({ className = "" }: { className?: string }) {
 }
 
 const projectsQuery = `*[_type == "project"] | order(order asc) { number, title, category, imageUrl }`
+const testimonialsQuery = `*[_type == "testimonial"] | order(order asc) { logoUrl, logoWidth, logoHeight, quote, author }`
+const newsQuery = `*[_type == "newsItem"] | order(order asc) { imageUrl, text }`
+const servicesQuery = `*[_type == "service"] | order(order asc) { number, name, imageUrl }`
+
+// Design-layout per positie (niet in CMS — zijn opmaakbeslissingen)
+const testimonialLayout = [
+  { rotation: -6.85, desktop: { left: "7.1%", top: 142, zIndex: 0 } },
+  { rotation: 2.9, desktop: { left: "46.9%", top: 200, zIndex: 20 } },
+  { rotation: 2.23, desktop: { left: "21.2%", top: 553, zIndex: 20 } },
+  { rotation: -4.15, desktop: { left: "68.5%", top: 546, zIndex: 20 } },
+];
 
 export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [projects, setProjects] = useState(defaultProjects);
+  const [testimonials, setTestimonials] = useState(defaultTestimonials);
+  const [newsItems, setNewsItems] = useState(defaultNewsItems);
+  const [services, setServices] = useState(defaultServices);
+  const [newsIndex, setNewsIndex] = useState(0);
+  const [navDark, setNavDark] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+
+  // GSAP: navbar kleur op basis van donkere secties
+  useEffect(() => {
+    gsap.registerPlugin(ScrollTrigger);
+    const triggers: ScrollTrigger[] = [];
+
+    document.querySelectorAll("[data-section-dark]").forEach((section) => {
+      triggers.push(
+        ScrollTrigger.create({
+          trigger: section,
+          start: "top 72px",
+          end: "bottom 0px",
+          onEnter: () => setNavDark(true),
+          onLeave: () => setNavDark(false),
+          onEnterBack: () => setNavDark(true),
+          onLeaveBack: () => setNavDark(false),
+        })
+      );
+    });
+
+    return () => triggers.forEach((t) => t.kill());
+  }, []);
+
+  // GSAP: ScrollTrigger parallax op hero
+  useEffect(() => {
+    gsap.registerPlugin(ScrollTrigger);
+
+    const hero = document.querySelector("[data-hero]");
+    const harvey = document.querySelector("[data-harvey]");
+    const specter = document.querySelector("[data-specter]");
+    const hello = document.querySelector("[data-hello]");
+
+    if (!hero || !harvey || !specter || !hello) return;
+
+    const tl = gsap.timeline({
+      scrollTrigger: {
+        trigger: hero,
+        start: "top top",
+        end: "bottom top",
+        scrub: 1.5,
+      },
+    });
+
+    tl.to([harvey, hello], { x: "-40vw", ease: "none" }, 0)
+      .to(specter, { x: "40vw", ease: "none" }, 0);
+
+    return () => {
+      tl.scrollTrigger?.kill();
+      tl.kill();
+    };
+  }, []);
+
+  // GSAP: desktop nav underlines + button scale
+  useEffect(() => {
+    const cleanups: (() => void)[] = [];
+
+    // Nav links + service names: underline animatie
+    document.querySelectorAll("[data-nav-link], [data-service-name]").forEach((link) => {
+      const underline = link.querySelector("[data-underline]") as HTMLElement;
+      gsap.set(underline, { scaleX: 0, transformOrigin: "left center" });
+
+      const enter = () => {
+        gsap.killTweensOf(underline);
+        gsap.to(underline, { scaleX: 1, duration: 0.3, ease: "power3.out", transformOrigin: "left center" });
+      };
+      const leave = () => {
+        gsap.killTweensOf(underline);
+        gsap.to(underline, { scaleX: 0, duration: 0.2, ease: "power3.in", transformOrigin: "right center" });
+      };
+      link.addEventListener("mouseenter", enter);
+      link.addEventListener("mouseleave", leave);
+      cleanups.push(() => {
+        link.removeEventListener("mouseenter", enter);
+        link.removeEventListener("mouseleave", leave);
+      });
+    });
+
+    // Service names: extra slide naar rechts
+    document.querySelectorAll("[data-service-name]").forEach((el) => {
+      const enter = () => gsap.to(el, { x: 14, duration: 0.3, ease: "power2.out" });
+      const leave = () => gsap.to(el, { x: 0, duration: 0.25, ease: "power2.inOut" });
+      el.addEventListener("mouseenter", enter);
+      el.addEventListener("mouseleave", leave);
+      cleanups.push(() => {
+        el.removeEventListener("mouseenter", enter);
+        el.removeEventListener("mouseleave", leave);
+      });
+    });
+
+    document.querySelectorAll("[data-btn]").forEach((btn) => {
+      const enter = () => gsap.to(btn, { scale: 1.05, duration: 0.2, ease: "back.out(2)" });
+      const leave = () => gsap.to(btn, { scale: 1, duration: 0.2, ease: "power2.inOut" });
+      btn.addEventListener("mouseenter", enter);
+      btn.addEventListener("mouseleave", leave);
+      cleanups.push(() => {
+        btn.removeEventListener("mouseenter", enter);
+        btn.removeEventListener("mouseleave", leave);
+      });
+    });
+
+    return () => cleanups.forEach((fn) => fn());
+  }, []);
+
+  // GSAP: blur reveal op full-bleed image
+  useEffect(() => {
+    gsap.registerPlugin(ScrollTrigger);
+    const img = document.querySelector("[data-blur-img]");
+    const section = document.querySelector("[data-blur-section]");
+    if (!img || !section) return;
+
+    gsap.set(img, { filter: "blur(20px)" });
+
+    const tween = gsap.to(img, {
+      filter: "blur(0px)",
+      ease: "none",
+      scrollTrigger: {
+        trigger: section,
+        start: "top bottom",
+        end: "center center",
+        scrub: 1,
+      },
+    });
+
+    return () => { tween.scrollTrigger?.kill(); tween.kill(); };
+  }, []);
+
+  // GSAP: testimonial kaarten parallax drift
+  useEffect(() => {
+    gsap.registerPlugin(ScrollTrigger);
+    const section = document.querySelector("[data-testimonials-section]");
+    if (!section) return;
+
+    const sectionRect = section.getBoundingClientRect();
+    const sectionCX = sectionRect.width / 2;
+    const sectionCY = sectionRect.height / 2;
+    const tweens: gsap.core.Tween[] = [];
+
+    document.querySelectorAll("[data-testimonial-card]").forEach((card) => {
+      const rect = card.getBoundingClientRect();
+      const cardCX = rect.left - sectionRect.left + rect.width / 2;
+      const cardCY = rect.top - sectionRect.top + rect.height / 2;
+      const dx = (cardCX - sectionCX) > 0 ? 30 : -30;
+      const dy = (cardCY - sectionCY) > 0 ? 20 : -20;
+
+      tweens.push(gsap.to(card, {
+        x: dx,
+        y: dy,
+        ease: "none",
+        scrollTrigger: {
+          trigger: section,
+          start: "top bottom",
+          end: "bottom top",
+          scrub: 2,
+        },
+      }));
+    });
+
+    return () => tweens.forEach((t) => { t.scrollTrigger?.kill(); t.kill(); });
+  }, []);
+
+  // GSAP: about textbox slide naar links
+  useEffect(() => {
+    gsap.registerPlugin(ScrollTrigger);
+    const box = document.querySelector("[data-about-textbox]");
+    if (!box) return;
+
+    const tween = gsap.to(box, {
+      x: "-80px",
+      ease: "none",
+      scrollTrigger: {
+        trigger: box,
+        start: "top 80%",
+        end: "bottom 10%",
+        scrub: 1.5,
+      },
+    });
+
+    return () => { tween.scrollTrigger?.kill(); tween.kill(); };
+  }, []);
+
+  // GSAP: tagline text fill scrubbing
+  useEffect(() => {
+    gsap.registerPlugin(ScrollTrigger);
+    const container = document.querySelector("[data-tagline]");
+    if (!container) return;
+
+    const lines = container.querySelectorAll("[data-tagline-line]");
+    const tl = gsap.timeline({
+      scrollTrigger: {
+        trigger: container,
+        start: "top 85%",
+        end: "bottom 30%",
+        scrub: 1.2,
+      },
+    });
+
+    lines.forEach((line, i) => {
+      tl.fromTo(
+        line,
+        { color: "#d0d0d0" },
+        { color: "#1f1f1f", duration: 1 },
+        i * 0.6
+      );
+    });
+
+    return () => { tl.scrollTrigger?.kill(); tl.kill(); };
+  }, []);
+
+  // GSAP: mobile menu link slide
+  useEffect(() => {
+    if (!menuOpen) return;
+    const cleanups: (() => void)[] = [];
+
+    document.querySelectorAll("[data-mobile-nav-link]").forEach((link) => {
+      const enter = () => gsap.to(link, { x: 12, duration: 0.2, ease: "power2.out" });
+      const leave = () => gsap.to(link, { x: 0, duration: 0.2, ease: "power2.in" });
+      link.addEventListener("mouseenter", enter);
+      link.addEventListener("mouseleave", leave);
+      cleanups.push(() => {
+        link.removeEventListener("mouseenter", enter);
+        link.removeEventListener("mouseleave", leave);
+        gsap.set(link, { x: 0 });
+      });
+    });
+
+    return () => cleanups.forEach((fn) => fn());
+  }, [menuOpen]);
 
   useEffect(() => {
     if (!client) return;
+
     client.fetch(projectsQuery).then((data) => {
       if (data?.length > 0) {
         setProjects(data.map((p: { number: string; title: string; category: string; imageUrl: string }) => ({
-          num: p.number,
-          name: p.title,
-          category: p.category,
-          img: p.imageUrl,
+          num: p.number, name: p.title, category: p.category, img: p.imageUrl,
+        })));
+      }
+    }).catch(() => {});
+
+    client.fetch(testimonialsQuery).then((data) => {
+      if (data?.length > 0) {
+        setTestimonials(data.map((t: { logoUrl: string; logoWidth: number; logoHeight: number; quote: string; author: string }, i: number) => ({
+          logo: t.logoUrl, logoW: t.logoWidth, logoH: t.logoHeight,
+          quote: t.quote, author: t.author,
+          ...testimonialLayout[i % testimonialLayout.length],
+        })));
+      }
+    }).catch(() => {});
+
+    client.fetch(newsQuery).then((data) => {
+      if (data?.length > 0) {
+        setNewsItems(data.map((n: { imageUrl: string; text: string }, i: number) => ({
+          img: n.imageUrl, text: n.text, offset: i % 2 !== 0,
+        })));
+      }
+    }).catch(() => {});
+
+    client.fetch(servicesQuery).then((data) => {
+      if (data?.length > 0) {
+        setServices(data.map((s: { number: string; name: string; imageUrl: string }) => ({
+          num: s.number, name: s.name, img: s.imageUrl,
         })));
       }
     }).catch(() => {});
   }, []);
 
+  const navTextClass = `transition-colors duration-300 ${navDark ? "text-white" : "text-black"}`;
+  const navUnderlineClass = "absolute bottom-0 left-0 w-full h-[1px] block bg-current";
+  const navBtnClass = `hidden md:flex font-medium text-[14px] tracking-[-0.56px] px-4 py-3 rounded-[24px] cursor-pointer transition-colors duration-300 ${navDark ? "bg-white text-black" : "bg-black text-white"}`;
+
   return (
     <>
-    <main className="bg-[#fafafa]">
+    <ContactModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
+    {/* ── Fixed Navbar ─────────────────────────────────────────────── */}
+    <header className="fixed top-0 left-0 right-0 z-40 px-4 md:px-8">
+      <nav className="flex items-center justify-between py-6 w-full">
+        <span className={`font-semibold text-[16px] tracking-[-0.64px] capitalize ${navTextClass}`}>
+          H.Studio
+        </span>
+
+        {/* Desktop: links */}
+        <div className={`hidden md:flex gap-14 items-center font-semibold text-[16px] tracking-[-0.64px] capitalize ${navTextClass}`}>
+          {[["Over", "/over"], ["Services", "/services"], ["Projects", "/projects"], ["Nieuws", "/nieuws"], ["Contact", "/contact"]].map(([label, href]) => (
+            <a key={label} href={href} className="relative pb-[2px]" data-nav-link>
+              {label}
+              <span className={navUnderlineClass} data-underline />
+            </a>
+          ))}
+        </div>
+
+        {/* Desktop: CTA */}
+        <button className={navBtnClass} data-btn onClick={() => setModalOpen(true)}>
+          Let&apos;s talk
+        </button>
+
+        {/* Mobile: hamburger */}
+        <button
+          className={`md:hidden cursor-pointer ${navTextClass}`}
+          aria-label="Open menu"
+          onClick={() => setMenuOpen(true)}
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+        </button>
+      </nav>
+    </header>
+
+    <main className="bg-[#fafafa] relative z-10">
       {/* ── Mobile menu overlay ─────────────────────────────────────── */}
       {menuOpen && (
         <div className="fixed inset-0 bg-black z-50 flex flex-col px-6 pt-6 pb-10 md:hidden">
@@ -159,21 +456,22 @@ export default function Home() {
 
           {/* Nav links */}
           <nav className="flex flex-col gap-6 mt-16">
-            {["About", "Services", "Projects", "News", "Contact"].map((item) => (
+            {[["Over", "/over"], ["Services", "/services"], ["Projects", "/projects"], ["Nieuws", "/nieuws"], ["Contact", "/contact"]].map(([label, href]) => (
               <a
-                key={item}
-                href={`#${item.toLowerCase()}`}
+                key={label}
+                href={href}
                 onClick={() => setMenuOpen(false)}
-                className="font-semibold text-[36px] tracking-[-0.04em] capitalize text-white hover:opacity-60 transition-opacity"
+                className="font-semibold text-[36px] tracking-[-0.04em] capitalize text-white inline-block"
+                data-mobile-nav-link
               >
-                {item}
+                {label}
               </a>
             ))}
           </nav>
 
           {/* CTA */}
           <div className="mt-auto">
-            <button className="border border-white text-white font-medium text-[14px] tracking-[-0.56px] px-5 py-3 rounded-[24px]">
+            <button className="border border-white text-white font-medium text-[14px] tracking-[-0.56px] px-5 py-3 rounded-[24px] cursor-pointer" data-btn onClick={() => { setMenuOpen(false); setModalOpen(true); }}>
               Let&apos;s talk
             </button>
           </div>
@@ -182,12 +480,13 @@ export default function Home() {
 
       {/* ── Hero + Navbar ───────────────────────────────────────────── */}
       <section
+        data-hero
         className={[
           "relative flex flex-col items-center overflow-clip",
-          // mobile: full viewport height, nav top / content bottom
-          "h-screen px-4 pb-6 justify-between",
-          // desktop: fixed height, gap pushes content down
-          "md:h-[847px] md:px-8 md:pb-0 md:gap-[240px] md:justify-start",
+          // mobile: content at bottom, space for fixed navbar
+          "h-screen px-4 pb-6 justify-end",
+          // desktop: fixed height, top padding = navbar(72) + gap(240)
+          "md:h-[847px] md:px-8 md:pb-0 md:justify-start md:pt-[312px]",
         ].join(" ")}
       >
         {/* Background image */}
@@ -214,40 +513,6 @@ export default function Home() {
           }}
         />
 
-        {/* ── Navbar ── */}
-        <nav className="flex items-center justify-between py-6 relative shrink-0 w-full z-10">
-          <span className="font-semibold text-[16px] tracking-[-0.64px] capitalize text-black">
-            H.Studio
-          </span>
-
-          {/* Desktop: links */}
-          <div className="hidden md:flex gap-14 items-center font-semibold text-[16px] tracking-[-0.64px] capitalize text-black">
-            {["About", "Services", "Projects", "News", "Contact"].map((item) => (
-              <a key={item} href={`#${item.toLowerCase()}`} className="hover:opacity-60 transition-opacity">
-                {item}
-              </a>
-            ))}
-          </div>
-
-          {/* Desktop: CTA */}
-          <button className="hidden md:flex bg-black text-white font-medium text-[14px] tracking-[-0.56px] px-4 py-3 rounded-[24px] cursor-pointer hover:opacity-80 transition-opacity">
-            Let&apos;s talk
-          </button>
-
-          {/* Mobile: hamburger */}
-          <button
-            className="md:hidden cursor-pointer"
-            aria-label="Open menu"
-            onClick={() => setMenuOpen(true)}
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
-          </button>
-        </nav>
-
         {/* ── Hero content ── */}
         <div
           className={[
@@ -260,8 +525,8 @@ export default function Home() {
         >
           {/* Name block */}
           <div className="flex flex-col items-center w-full md:items-start md:pb-[15px]">
-            <div className="flex items-center justify-center px-[18px] w-full md:justify-start md:mb-[-15px]">
-              <p className="font-mono leading-[1.1] mix-blend-overlay text-white uppercase whitespace-nowrap text-[14px]">
+            <div className="flex items-center justify-center px-[18px] w-full md:justify-start md:px-0 md:mb-[-15px]">
+              <p className="font-mono leading-[1.1] mix-blend-overlay text-white uppercase whitespace-nowrap text-[14px]" data-hello>
                 [ Hello i&apos;m ]
               </p>
             </div>
@@ -269,18 +534,22 @@ export default function Home() {
             {/* Fluid font size: scales with viewport, no hard breakpoint jump */}
             <div
               className={[
-                "font-medium text-center text-white mix-blend-overlay w-full capitalize",
+                "font-medium text-center md:text-left text-white mix-blend-overlay w-full capitalize",
                 "leading-[0.85] md:mb-[-15px] md:leading-[1.1]",
               ].join(" ")}
               style={{ fontSize: "clamp(80px, 12.5vw, 198px)", letterSpacing: "-0.07em" }}
             >
-              <p className="whitespace-pre-wrap">{`Harvey   Specter`}</p>
+              <p className="whitespace-pre-wrap">
+                <span data-harvey style={{ display: "inline-block" }}>Harvey</span>
+                {"   "}
+                <span data-specter style={{ display: "inline-block" }}>Specter</span>
+              </p>
             </div>
           </div>
 
           {/* Description + CTA */}
-          <div className="flex flex-col items-start justify-center w-full md:items-end">
-            <div className="flex flex-col gap-[17px] items-start w-[293px] md:w-[294px]">
+          <div className="flex flex-col items-center justify-center w-full md:items-end">
+            <div className="flex flex-col gap-[17px] items-center md:items-start w-[293px] md:w-[294px]">
               <p className="font-bold italic text-[14px] tracking-[-0.56px] uppercase text-[#1f1f1f] leading-[1.1]">
                 <span>H.Studio is a </span>
                 <span className="font-normal">full-service</span>
@@ -288,7 +557,7 @@ export default function Home() {
                 <span className="font-normal">award winning</span>
                 <span> design and art group specializing in branding, web design and engineering.</span>
               </p>
-              <button className="bg-black text-white font-medium text-[14px] tracking-[-0.56px] px-4 py-3 rounded-[24px] cursor-pointer hover:opacity-80 transition-opacity">
+              <button className="bg-black text-white font-medium text-[14px] tracking-[-0.56px] px-4 py-3 rounded-[24px] cursor-pointer" data-btn>
                 Let&apos;s talk
               </button>
             </div>
@@ -309,7 +578,7 @@ export default function Home() {
           </div>
 
           {/* Tagline — staircase on desktop, centered on mobile */}
-          <div className="flex flex-col gap-2 items-center md:items-start">
+          <div className="flex flex-col gap-2 items-center md:items-start" data-tagline>
 
             {/* Mobile only: section number */}
             <p className="font-mono text-[14px] leading-[1.1] text-[#1f1f1f] md:hidden">001</p>
@@ -317,6 +586,7 @@ export default function Home() {
             {/* Line 1: "A creative director   /" + desktop section number */}
             <div className="flex gap-3 items-start justify-center md:justify-start w-full">
               <p
+                data-tagline-line
                 className="font-light leading-[0.84] tracking-[-0.08em] uppercase whitespace-pre"
                 style={{ fontSize: "clamp(32px, 6.67vw, 96px)" }}
               >
@@ -330,6 +600,7 @@ export default function Home() {
             {/* Line 2: Photographer — 15% indent on desktop */}
             <div className="w-full flex justify-center md:block md:pl-[15%]">
               <p
+                data-tagline-line
                 className="font-light leading-[0.84] tracking-[-0.08em] uppercase whitespace-nowrap"
                 style={{ fontSize: "clamp(32px, 6.67vw, 96px)" }}
               >
@@ -340,6 +611,7 @@ export default function Home() {
             {/* Line 3: Born & raised — 44% indent on desktop */}
             <div className="w-full flex justify-center md:block md:pl-[44%]">
               <p
+                data-tagline-line
                 className="font-light leading-[0.84] tracking-[-0.08em] uppercase whitespace-nowrap"
                 style={{ fontSize: "clamp(32px, 6.67vw, 96px)" }}
               >
@@ -352,6 +624,7 @@ export default function Home() {
             {/* Line 4: on the south side — no indent */}
             <div className="w-full flex justify-center md:block">
               <p
+                data-tagline-line
                 className="font-light leading-[0.84] tracking-[-0.08em] uppercase whitespace-nowrap"
                 style={{ fontSize: "clamp(32px, 6.67vw, 96px)" }}
               >
@@ -363,6 +636,7 @@ export default function Home() {
             {/* Desktop: side by side, 44% indent */}
             <div className="hidden md:flex items-baseline gap-4 pl-[44%]">
               <p
+                data-tagline-line
                 className="font-light leading-[0.84] tracking-[-0.08em] uppercase whitespace-nowrap"
                 style={{ fontSize: "clamp(32px, 6.67vw, 96px)" }}
               >
@@ -375,6 +649,7 @@ export default function Home() {
             {/* Mobile: stacked, centered */}
             <div className="md:hidden flex flex-col items-center gap-3">
               <p
+                data-tagline-line
                 className="font-light leading-[0.84] tracking-[-0.08em] uppercase whitespace-nowrap"
                 style={{ fontSize: "clamp(32px, 6.67vw, 96px)" }}
               >
@@ -393,7 +668,7 @@ export default function Home() {
       {/* Mobile layout (<lg) */}
       <section className="lg:hidden px-4 py-12 flex flex-col gap-5">
         <p className="font-mono text-[14px] leading-[1.1] text-[#1f1f1f] uppercase">002</p>
-        <p className="font-mono text-[14px] leading-[1.1] text-[#1f1f1f] uppercase">[ About ]</p>
+        <p className="font-mono text-[14px] leading-[1.1] text-[#1f1f1f] uppercase">[ Over ]</p>
 
         {/* Text with corner brackets */}
         <div className="flex gap-3 items-stretch">
@@ -424,14 +699,14 @@ export default function Home() {
       <section className="hidden lg:flex items-start justify-between px-8 py-20 gap-8">
         {/* Left: section label */}
         <p className="font-mono text-[14px] leading-[1.1] text-[#1f1f1f] uppercase shrink-0 pt-1">
-          [ About ]
+          [ Over ]
         </p>
 
         {/* Right column: text block + photo */}
         <div className="flex items-end gap-8 flex-1 justify-end">
 
           {/* Text with corner brackets — capped at 393px per design */}
-          <div className="flex gap-3 items-stretch max-w-[393px]">
+          <div className="flex gap-3 items-stretch max-w-[393px]" data-about-textbox>
             <div className="flex flex-col justify-between shrink-0">
               <CornerBracket />
               <CornerBracket className="-rotate-90" />
@@ -459,8 +734,9 @@ export default function Home() {
         </div>
       </section>
       {/* ── Section 4: Full-bleed photo ────────────────────────────── */}
-      <section className="relative w-full h-[500px] md:h-[900px] overflow-hidden shrink-0">
+      <section data-blur-section className="relative w-full h-[500px] md:h-[900px] overflow-hidden shrink-0">
         <img
+          data-blur-img
           alt="Harvey Specter photographing"
           className="absolute inset-0 size-full object-cover object-[65%_center]"
           src={fullBleedImage}
@@ -468,7 +744,7 @@ export default function Home() {
       </section>
 
       {/* ── Section 5: Services / Deliverables ─────────────────────── */}
-      <section id="services" className="bg-black px-4 py-12 md:px-8 md:py-20 flex flex-col gap-8 md:gap-12">
+      <section id="services" data-section-dark className="bg-black px-4 py-12 md:px-8 md:py-20 flex flex-col gap-8 md:gap-12">
 
         {/* [ services ] label */}
         <p className="font-mono text-[14px] leading-[1.1] text-white uppercase">[ services ]</p>
@@ -497,9 +773,12 @@ export default function Home() {
 
               {/* Content row: name left / description+image right */}
               <div className="flex flex-col gap-4 pt-1 lg:flex-row lg:items-start lg:justify-between">
-                <p className="font-bold italic text-[36px] text-white tracking-[-1.44px] uppercase leading-[1.1] whitespace-nowrap shrink-0">
-                  {service.name}
-                </p>
+                <div className="relative shrink-0 inline-block cursor-default" data-service-name>
+                  <p className="font-bold italic text-[36px] text-white tracking-[-1.44px] uppercase leading-[1.1] whitespace-nowrap">
+                    {service.name}
+                  </p>
+                  <span className="absolute bottom-0 left-0 w-full h-[1.5px] bg-current block" data-underline />
+                </div>
                 <div className="flex flex-col gap-4 lg:flex-row lg:gap-6 lg:items-start shrink-0">
                   <p className="text-[14px] text-white leading-[1.3] tracking-[-0.56px] lg:w-[393px]">
                     Placeholder description of this service. Explain the value you provide and the outcomes clients can expect. Keep it to two or three sentences.
@@ -538,13 +817,14 @@ export default function Home() {
         {/* ── Mobile: single-column stack ── */}
         <div className="flex flex-col gap-4 lg:hidden">
           {projects.map((project) => (
-            <div key={project.num} className="relative h-[390px] overflow-hidden">
+            <div key={project.num} className="relative h-[390px] overflow-hidden group cursor-pointer">
               <img
                 src={project.img}
                 alt={project.name}
-                className="absolute inset-0 size-full object-cover"
+                className="absolute inset-0 size-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-500 pointer-events-none" />
               {/* Top row */}
               <div className="absolute top-4 left-4 right-4 flex items-start justify-between">
                 <span className="font-mono text-[12px] text-white/60">{project.num}</span>
@@ -553,11 +833,11 @@ export default function Home() {
                 </span>
               </div>
               {/* Bottom row */}
-              <div className="absolute bottom-5 left-5 right-5 flex items-end justify-between">
+              <div className="absolute bottom-5 left-5 right-5 flex items-end justify-between transition-transform duration-500 ease-out group-hover:-translate-y-2">
                 <p className="font-black text-white text-[24px] tracking-[-0.06em] uppercase leading-[1.05]">
                   {project.name}
                 </p>
-                <ArrowDiagonal className="text-white" />
+                <ArrowDiagonal className="text-white transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1" />
               </div>
             </div>
           ))}
@@ -585,30 +865,32 @@ export default function Home() {
           {/* Left column */}
           <div className="flex flex-col gap-6 flex-1">
             {/* Project 1 — tall */}
-            <div className="relative h-[640px] overflow-hidden">
-              <img src={projects[0].img} alt={projects[0].name} className="absolute inset-0 size-full object-cover" />
+            <div className="relative h-[640px] overflow-hidden group cursor-pointer">
+              <img src={projects[0].img} alt={projects[0].name} className="absolute inset-0 size-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-500 pointer-events-none" />
               <div className="absolute top-5 left-5 right-5 flex items-start justify-between">
                 <span className="font-mono text-[12px] text-white/60">{projects[0].num}</span>
                 <span className="font-mono text-[11px] text-white bg-white/15 backdrop-blur-sm px-3 py-1 rounded-full uppercase">{projects[0].category}</span>
               </div>
-              <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between">
+              <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between transition-transform duration-500 ease-out group-hover:-translate-y-2">
                 <p className="font-black text-white text-[36px] tracking-[-0.07em] uppercase leading-[1.05]">{projects[0].name}</p>
-                <ArrowDiagonal className="text-white" />
+                <ArrowDiagonal className="text-white transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1" />
               </div>
             </div>
 
             {/* Project 2 */}
-            <div className="relative h-[420px] overflow-hidden">
-              <img src={projects[1].img} alt={projects[1].name} className="absolute inset-0 size-full object-cover" />
+            <div className="relative h-[420px] overflow-hidden group cursor-pointer">
+              <img src={projects[1].img} alt={projects[1].name} className="absolute inset-0 size-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-500 pointer-events-none" />
               <div className="absolute top-5 left-5 right-5 flex items-start justify-between">
                 <span className="font-mono text-[12px] text-white/60">{projects[1].num}</span>
                 <span className="font-mono text-[11px] text-white bg-white/15 backdrop-blur-sm px-3 py-1 rounded-full uppercase">{projects[1].category}</span>
               </div>
-              <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between">
+              <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between transition-transform duration-500 ease-out group-hover:-translate-y-2">
                 <p className="font-black text-white text-[36px] tracking-[-0.07em] uppercase leading-[1.05]">{projects[1].name}</p>
-                <ArrowDiagonal className="text-white" />
+                <ArrowDiagonal className="text-white transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1" />
               </div>
             </div>
 
@@ -632,30 +914,32 @@ export default function Home() {
           {/* Right column — offset down 240px */}
           <div className="flex flex-col gap-6 flex-1 mt-[240px]">
             {/* Project 3 */}
-            <div className="relative h-[420px] overflow-hidden">
-              <img src={projects[2].img} alt={projects[2].name} className="absolute inset-0 size-full object-cover" />
+            <div className="relative h-[420px] overflow-hidden group cursor-pointer">
+              <img src={projects[2].img} alt={projects[2].name} className="absolute inset-0 size-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-500 pointer-events-none" />
               <div className="absolute top-5 left-5 right-5 flex items-start justify-between">
                 <span className="font-mono text-[12px] text-white/60">{projects[2].num}</span>
                 <span className="font-mono text-[11px] text-white bg-white/15 backdrop-blur-sm px-3 py-1 rounded-full uppercase">{projects[2].category}</span>
               </div>
-              <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between">
+              <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between transition-transform duration-500 ease-out group-hover:-translate-y-2">
                 <p className="font-black text-white text-[36px] tracking-[-0.07em] uppercase leading-[1.05]">{projects[2].name}</p>
-                <ArrowDiagonal className="text-white" />
+                <ArrowDiagonal className="text-white transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1" />
               </div>
             </div>
 
             {/* Project 4 — tall */}
-            <div className="relative h-[640px] overflow-hidden">
-              <img src={projects[3].img} alt={projects[3].name} className="absolute inset-0 size-full object-cover" />
+            <div className="relative h-[640px] overflow-hidden group cursor-pointer">
+              <img src={projects[3].img} alt={projects[3].name} className="absolute inset-0 size-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-500 pointer-events-none" />
               <div className="absolute top-5 left-5 right-5 flex items-start justify-between">
                 <span className="font-mono text-[12px] text-white/60">{projects[3].num}</span>
                 <span className="font-mono text-[11px] text-white bg-white/15 backdrop-blur-sm px-3 py-1 rounded-full uppercase">{projects[3].category}</span>
               </div>
-              <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between">
+              <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between transition-transform duration-500 ease-out group-hover:-translate-y-2">
                 <p className="font-black text-white text-[36px] tracking-[-0.07em] uppercase leading-[1.05]">{projects[3].name}</p>
-                <ArrowDiagonal className="text-white" />
+                <ArrowDiagonal className="text-white transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1" />
               </div>
             </div>
           </div>
@@ -674,7 +958,7 @@ export default function Home() {
         </h2>
 
         {/* Horizontal scroll — cards peek in from the right */}
-        <div className="overflow-x-auto snap-x snap-mandatory pb-4 -mx-4">
+        <div className="overflow-x-auto snap-x snap-mandatory pt-8 pb-4 -mx-4">
           <div className="flex pl-4 gap-6" style={{ paddingRight: "1rem" }}>
             {testimonials.map((t, i) => (
               <div
@@ -700,12 +984,13 @@ export default function Home() {
       </section>
 
       {/* Desktop: scattered cards over large heading */}
-      <section className="hidden lg:block relative h-[920px] overflow-hidden">
+      <section data-testimonials-section className="hidden lg:block relative h-[920px] overflow-hidden">
 
         {/* Cards with z < 10 go BEHIND the heading */}
-        {testimonials.filter((t) => t.desktop.zIndex < 10).map((t, i) => (
+        {testimonials.filter((t) => t.desktop.zIndex < 10).map((t, i, arr) => (
           <div
             key={i}
+            data-testimonial-card={testimonials.indexOf(t)}
             className="absolute"
             style={{
               left: t.desktop.left,
@@ -738,6 +1023,7 @@ export default function Home() {
         {testimonials.filter((t) => t.desktop.zIndex > 10).map((t, i) => (
           <div
             key={i}
+            data-testimonial-card={testimonials.indexOf(t)}
             className="absolute"
             style={{
               left: t.desktop.left,
@@ -764,22 +1050,44 @@ export default function Home() {
           className="font-light uppercase"
           style={{ fontSize: "clamp(24px, 8.5vw, 32px)", letterSpacing: "-0.08em", lineHeight: "0.86" }}
         >
-          Keep up with my latest news &amp; achievements
+          Blijf op de hoogte van mijn laatste nieuws &amp; prestaties
         </h2>
-        <div className="overflow-x-auto snap-x snap-mandatory -mx-4">
-          <div className="flex pl-4 gap-4" style={{ paddingRight: "1rem" }}>
-            {newsItems.map((item, i) => (
-              <div key={i} className="snap-start flex-none w-[300px] flex flex-col gap-4">
-                <div className="h-[398px] relative overflow-hidden shrink-0">
-                  <img src={item.img} alt="" className="absolute inset-0 size-full object-cover pointer-events-none" />
-                </div>
-                <p className="text-[14px] text-[#1f1f1f] leading-[1.3] tracking-[-0.56px]">{item.text}</p>
-                <a href="#" className="flex items-center gap-2 border-b border-black pb-1 self-start">
-                  <span className="font-medium text-[14px] text-black tracking-[-0.56px]">Read more</span>
-                  <ArrowDiagonal className="w-[18px] h-[18px] text-black shrink-0" />
-                </a>
-              </div>
-            ))}
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-4">
+            <div className="h-[398px] relative overflow-hidden">
+              <img src={newsItems[newsIndex].img} alt="" className="absolute inset-0 size-full object-cover pointer-events-none" />
+            </div>
+            <p className="text-[14px] text-[#1f1f1f] leading-[1.3] tracking-[-0.56px]">{newsItems[newsIndex].text}</p>
+            <a href="#" className="flex items-center gap-2 border-b border-black pb-1 self-start">
+              <span className="font-medium text-[14px] text-black tracking-[-0.56px]">Read more</span>
+              <ArrowDiagonal className="w-[18px] h-[18px] text-black shrink-0" />
+            </a>
+          </div>
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setNewsIndex((newsIndex - 1 + newsItems.length) % newsItems.length)}
+              className="w-10 h-10 rounded-full border border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"
+              aria-label="Vorige"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </button>
+            <div className="flex gap-2">
+              {newsItems.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setNewsIndex(i)}
+                  className={`rounded-full transition-all ${i === newsIndex ? "w-6 h-2 bg-black" : "w-2 h-2 bg-black/30"}`}
+                  aria-label={`Slide ${i + 1}`}
+                />
+              ))}
+            </div>
+            <button
+              onClick={() => setNewsIndex((newsIndex + 1) % newsItems.length)}
+              className="w-10 h-10 rounded-full border border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"
+              aria-label="Volgende"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </button>
           </div>
         </div>
       </section>
@@ -794,7 +1102,7 @@ export default function Home() {
               className="font-light uppercase whitespace-nowrap"
               style={{ fontSize: "64px", letterSpacing: "-0.08em", lineHeight: "0.86" }}
             >
-              Keep up with my latest<br />news &amp; achievements
+              Blijf op de hoogte van mijn laatste<br />nieuws &amp; prestaties
             </h2>
           </div>
         </div>
@@ -806,9 +1114,9 @@ export default function Home() {
               {i > 0 && (
                 <div className="w-px self-stretch bg-black/20 shrink-0" />
               )}
-              <div className={`flex flex-col gap-4 flex-1 ${item.offset ? "pt-[120px]" : ""}`}>
+              <div className={`flex flex-col gap-4 flex-1 group cursor-pointer ${item.offset ? "pt-[120px]" : ""}`}>
                 <div className="h-[469px] relative overflow-hidden shrink-0">
-                  <img src={item.img} alt="" className="absolute inset-0 size-full object-cover pointer-events-none" />
+                  <img src={item.img} alt="" className="absolute inset-0 size-full object-cover pointer-events-none transition-transform duration-500 ease-out group-hover:scale-[1.03] group-hover:-translate-y-2" />
                 </div>
                 <p className="text-[14px] text-[#1f1f1f] leading-[1.3] tracking-[-0.56px]">{item.text}</p>
                 <a href="#" className="flex items-center gap-2 border-b border-black pb-1 self-start">
@@ -823,7 +1131,7 @@ export default function Home() {
     </main>
 
       {/* ── Footer ──────────────────────────────────────────────────── */}
-      <footer className="bg-black px-4 pt-12 lg:px-8 flex flex-col gap-12 lg:gap-[120px] overflow-hidden">
+      <footer data-section-dark className="sticky bottom-0 z-0 bg-black px-4 pt-12 lg:px-8 flex flex-col gap-12 lg:gap-[120px] overflow-hidden">
 
         {/* Top: CTA + social links */}
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">

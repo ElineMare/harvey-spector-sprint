@@ -3,6 +3,9 @@
 import { defineConfig } from 'sanity'
 import { structureTool } from 'sanity/structure'
 import { project } from './lib/schemas/project'
+import { testimonial } from './lib/schemas/testimonial'
+import { newsItem } from './lib/schemas/newsItem'
+import { service } from './lib/schemas/service'
 
 export default defineConfig({
   name: 'default',
@@ -12,6 +15,6 @@ export default defineConfig({
   basePath: '/studio',
   plugins: [structureTool()],
   schema: {
-    types: [project],
+    types: [project, testimonial, newsItem, service],
   },
 })
